@@ -17,7 +17,7 @@ A proof-of-concept implementation is provided in [`ghost-avalanche-attack`](/gho
 
 ## Results
 
-We plot a snapshot of the block tree (adversarial blocks: red, honest blocks: green) resulting after the last block tree reorganization within the first 100 time slots. The attack is still ongoing thereafter, and as long as the attack is sustained, no honest blocks enter the canonical chain.
+We plot a snapshot of the block tree (adversarial blocks: red, honest blocks: green) resulting after the last block tree reorganization within the first 100 time slots. The attack is still ongoing thereafter, and as long as the attack is sustained, no honest blocks remain in the canonical chain permanently.
 
 ### PoS GHOST
 
