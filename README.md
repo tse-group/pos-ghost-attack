@@ -49,3 +49,8 @@ As an overall result of the attack so far, the adversary started with $k$ withhe
 The process now repeats: The adversary has a bunch withheld blocks; whenever honest nodes have built a chain of weight equal to the withheld blocks, then the adversary releases a competing sub-tree of height 2; the chain made up from the first two released withheld blocks is adopted by honest nodes, the other block production opportunities can still be reused in the future through equivocations on top of it and thus remain in the pool of withheld blocks of the adversary.
 
 If the adversary starts out with enough withheld blocks $k$, and adversarial stake is not too small, then the adversary gains 2 block production opportunities during the production of the $k$ honest blocks that will be displaced subsequently, and the process renews (or even drifts in favor of the adversary). No honest blocks enter the canonical chain permanently.
+
+
+## Applicability to PoS Ethereum
+
+PoS Ethereum's LMD (Latest Message Driven) aspect interferes with this attack.
