@@ -12,8 +12,17 @@ serde = { version = "1.0", features = ["derive"] }
 bincode = "1.3.1"
 ed25519-dalek = "1.0.1"
 base58 = "0.2.0"
+itertools = "0.10.3"
+
+
+[features]
+shortscenario = []
 
 
 [[bin]]
-name = "main"
-path = "src/main.rs"
+name = "attack-pos-ghost"
+path = "src/attack-pos-ghost.rs"
+
+[[bin]]
+name = "attack-committee-ghost"
+path = "src/attack-committee-ghost.rs"

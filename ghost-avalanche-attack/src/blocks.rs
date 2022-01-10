@@ -5,13 +5,14 @@ use serde::{Serialize};
 use ed25519_dalek::{Sha512, Digest as _};
 use std::convert::{TryFrom, TryInto};
 use std::collections::{HashMap, HashSet};
+use itertools::Itertools;
 
 
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BlockPayload(pub String);
 
 
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Block {
     parent: Option<Digest>,
     payload: BlockPayload,
@@ -60,8 +61,8 @@ pub struct GhostBlockTree {
     blocks: HashMap<Digest, Block>,
     children: HashMap<Digest, Vec<Digest>>,
     votetally: HashMap<Digest, VoteWeight>,
-    votestallied: HashMap<Digest, HashSet<Timeslot>>,
-    debug_voteweights: HashMap<(Digest, Timeslot), VoteWeight>,
+    votestallied: HashMap<Digest, HashSet<(Timeslot, usize)>>,
+    debug_voteweights: HashMap<(Digest, Timeslot, usize), VoteWeight>,
     genesis_digest: Digest,
 }
 
@@ -103,7 +104,11 @@ impl GhostBlockTree {
                         b1._aux_is_adversarial() > b2._aux_is_adversarial()) ||
                     (self.votetally[b_digest] == max_votetally.unwrap() && 
                         b1._aux_is_adversarial() == b2._aux_is_adversarial() &&
-                        b1.slot < b2.slot) {
+                        b1.slot < b2.slot) ||
+                    (self.votetally[b_digest] == max_votetally.unwrap() && 
+                        b1._aux_is_adversarial() == b2._aux_is_adversarial() &&
+                        b1.slot == b2.slot &&
+                        b1.payload < b2.payload) {
                     max_votetally = Some(self.votetally[b_digest]);
                     max_votetally_blk_digest = &b_digest;
                 }
@@ -123,6 +128,10 @@ impl GhostBlockTree {
         self.children.get(d).expect("Digest expected to be in GhostBlockTree").clone()
     }
 
+    pub fn get_votetally_for(&self, d: &Digest) -> VoteWeight {
+        self.votetally.get(d).expect("Digest expected to be in GhostBlockTree").clone()
+    }
+
     pub fn add_block(&mut self, blk: Block) {
         let blk_digest = blk.digest();
         let parent_blk_digest = blk.parent.clone().expect("Parent expected to be Some(...)");
@@ -137,7 +146,7 @@ impl GhostBlockTree {
             .push(blk_digest);
     }
 
-    pub fn add_vote(&mut self, d: &Digest, t: Timeslot, w: VoteWeight) {
+    pub fn add_vote(&mut self, d: &Digest, t: Timeslot, w: VoteWeight, party: usize) {
         assert!(self.blocks.contains_key(&d), "Digest expected to be in GhostBlockTree");
         
         let mut b = Some(d);
@@ -148,17 +157,17 @@ impl GhostBlockTree {
             let blk = &self.blocks[b_digest];
             assert!(blk.slot <= t, "Cannot cast votes on future blocks");
 
-            if self.votestallied[b_digest].contains(&t) {
+            if self.votestallied[b_digest].contains(&(t, party)) {
                 // a vote has been tallied for this block and time slot already;
                 // since we do not handle updating vote tallies, make sure the
                 // current vote adding request is consistent (ie, matches the
                 // weight of the previous request); no new votes added
-                assert!(self.debug_voteweights[&(b_digest.clone(), t)] == w, "Updating/overriding previous votes not supported");
+                assert!(self.debug_voteweights[&(b_digest.clone(), t, party)] == w, "Updating/overriding previous votes not supported");
             } else {
                 // otherwise add votes and keep track of what votes were tallied
                 *self.votetally.get_mut(b_digest).unwrap() += w;
-                self.votestallied.get_mut(b_digest).unwrap().insert(t);
-                self.debug_voteweights.insert((b_digest.clone(), t), w);
+                self.votestallied.get_mut(b_digest).unwrap().insert((t, party));
+                self.debug_voteweights.insert((b_digest.clone(), t, party), w);
             }
 
             b = blk.parent.as_ref();
@@ -169,7 +178,7 @@ impl GhostBlockTree {
         let mut v: String = "digraph G {\n  rankdir=BT;\n  style=filled;\n  color=lightgrey;\n  node [shape=box,style=filled,color=white];\n".to_string();
         v = format!("{}\n", v);
 
-        for blk in self.blocks.values() {
+        for blk in self.blocks.values().sorted() {
             let color = if blk._aux_is_adversarial() { "red" } else { "green" };
             v = format!(
                     "{}  blk_{} [label=\"{}\\nt={}: {}\\n{} votes\", color=\"{}\"];\n",
@@ -184,7 +193,7 @@ impl GhostBlockTree {
         }
         v = format!("{}\n", v);
 
-        for blk in self.blocks.values() {
+        for blk in self.blocks.values().sorted() {
             if blk.parent.clone() != None {
                 v = format!("{}  blk_{} -> blk_{};\n", v, blk.digest(), blk.parent.clone().unwrap());
             }
